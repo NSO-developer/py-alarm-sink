@@ -1,0 +1,17 @@
+<ncs-package xmlns="http://tail-f.com/ns/ncs-packages">
+  <name>test-alarm-sink</name>
+  <package-version>1.0</package-version>
+  <description>Test package for alarm-sink</description>
+  <ncs-min-version>4.7</ncs-min-version>
+
+  <required-package>
+    <name>py-alarm-sink</name>
+  </required-package>
+
+  <component>
+    <name>Test Actions</name>
+    <application>
+      <python-class-name>test_alarm_sink.main.Main</python-class-name>
+    </application>
+  </component>
+</ncs-package>

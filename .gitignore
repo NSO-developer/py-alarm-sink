@@ -1,0 +1,4 @@
+Dockerfile
+.mypy_cache/
+.pylint.d/
+*.fxs

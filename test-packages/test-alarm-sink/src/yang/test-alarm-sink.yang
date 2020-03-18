@@ -1,0 +1,66 @@
+module test-alarm-sink {
+  yang-version 1.1;
+
+  namespace "http://example.com/test-alarm-sink";
+  prefix test-alarm-sink;
+
+  import tailf-common {
+    prefix tailf;
+  }
+
+  import tailf-ncs-alarms {
+    prefix al;
+  }
+
+  identity test-alarm {
+    base al:alarm-type;
+  }
+
+  grouping alarm-id {
+    leaf device {
+      type string;
+    }
+    leaf managed-object {
+      type string;
+    }
+    leaf type {
+      type al:alarm-type-t;
+    }
+    leaf specific-problem {
+      type string;
+    }
+  }
+
+  container test-alarm-sink {
+    action create-alarm {
+      tailf:actionpoint "create-alarm";
+      input {
+        uses alarm-id;
+
+        leaf severity {
+          type al:severity-t;
+        }
+        leaf alarm-text {
+          type string;
+        }
+      }
+    }
+
+    action update-alarm {
+      tailf:actionpoint "update-alarm";
+      input {
+        uses alarm-id;
+
+        leaf severity {
+          type al:severity-t;
+        }
+        leaf alarm-text {
+          type string;
+        }
+        leaf cleared {
+          type empty;
+        }
+      }
+    }
+  }
+}

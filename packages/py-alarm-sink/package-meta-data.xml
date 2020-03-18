@@ -1,0 +1,6 @@
+<ncs-package xmlns="http://tail-f.com/ns/ncs-packages">
+  <name>py-alarm-sink</name>
+  <package-version>1.0</package-version>
+  <description>Python module for creating alarms in NSO</description>
+  <ncs-min-version>4.7</ncs-min-version>
+</ncs-package>
