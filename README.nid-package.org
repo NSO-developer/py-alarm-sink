@@ -20,6 +20,13 @@
 ** NSO_IMAGE_PATH
    The =NSO_IMAGE_PATH= specifies the location of the NSO images that are used for building. If you have built NSO in Docker images locally, i.e. you have the images =cisco-nso-base= and =cisco-nso-dev= available locally, you do not need to set =NSO_IMAGE_PATH=. If you want to use images built elsewhere, perhaps from a CI system, you need to specify the path like =registry.gitlab.com/my-group/nso-docker/=.
 
+** IMAGE_PATH
+   =IMAGE_PATH= specifies the base path for the resulting output images.
+
+   In CI, =IMAGE_PATH= is automatically set, if not already defined (through a CI variable), to the project namespace path. For example, for the project =gitlab.com/example/foobar=, the =IMAGE_PATH= would be =registry.gitlab.com/example/=.
+
+   For a local build, =IMAGE_PATH= does not have a default value but can be manually set.
+
 ** Building and testing
    As part of the =build= make target, two docker images are produced:
    - =testnso=: an NSO image that has the package loaded
@@ -50,15 +57,20 @@
      - removes an optional volume (see =devenv= for more info on volume usage)
    - =testenv-shell=: Get an interactive =bash= shell in the =testnso= container
    - =testenv-cli=: Get an interactive NSO CLI (=ncs_cli=) in the =testnso= container
-   - =testenv-runcmd=: Run a command with =ncs_cli=, provide the command through the environment variable =CMD=
-     - the =testenv-runcmd= target can be called to run a command, from an interactive shell like ~make testenv-runcmd CMD="show ncs-state version"~
+   - =testenv-runcmdC= / =testenv-runcmdJ=: Run a command with =ncs_cli=, provide the command through the environment variable =CMD=
+     - the command is expected in the C-style CLI syntax for =testenv-runcmdC= or J-style CLI with =testenv-runcmdJ=
+     - the runcmd targets can be called to run a command, from an interactive shell like ~make testenv-runcmdJ CMD="show ncs-state version"~
      - it can also be called from other make targets, for example to run commands from tests
-       - ~$(MAKE) testenv-runcmd CMD="show ncs-state version"~
+       - ~$(MAKE) testenv-runcmdJ CMD="show ncs-state version"~
+
+   To access NSO via one of its northbound interfaces, like NETCONF or RESTCONF, use the credentials =admin= / =NsoDocker1337=.
 
 ** The development environment - devenv
    The development environment is similar to the =testenv= but additionally a =devenv= allows recompilation and reloading of packages in NSO. This enables a much shorter REPL cycle.
 
    Instead of starting with =testenv-start= you start up a devenv using =devenv-start=. After modifying the source you can use =devenv-build= to build your package and reload it in NSO.
+
+   =devenv-build= will only rebuild the packages in =packages/= and =test-packages/=. Included packages that are specified through manifests in the =includes/= directory, are not rebuilt. Since they might not ship with their source code, it might not even be possible.
 
    It is possible to develop using the normal build and the testenv by modifying the code and running ~make build testenv-stop test~ which will:
    - stop the currently running testenv
@@ -121,6 +133,21 @@
 
   Modify the =Makefile=, which includes some examples, to apply the tests you want.
 
+* Including external packages
+  You can include externally built packages by placing a manifest file in the =includes/= folder. It is in fact encouraged to build most packages, such as NEDs and other packages on their own separate git repositories where they can be developed and tested in isolation and later include them.
+
+  There should be one manifest file in the =includes/= directory per package you want to include. The content of the file should be the URL to the Docker image, including the full registry path. For example, to include =bgworker=, a Python library for writing background workers in NSO, the manifest file could look like this:
+
+  #+BEGIN_SRC text
+    ${PKG_PATH}bgworker:${NSO_VERSION}
+  #+END_SRC
+
+  When run in CI, =PKG_PATH= is set to the Docker registry up and including the namespace of the current project. If our project is hosted at http://gitlab.com/example/my-project and the corresponding Docker registry path is =registry.gitlab.com/example/my-project/=, then =PKG_PATH= will be set to =registry.gitlab.com/example/=. =NSO_VERSION= naturally contains the value of the NSO version we are currently working with. Evaluating our manifest file, if we are running a CI build for NSO 5.3, we see that it will result in the inclusion of =registry.gitlab.com/example/bgworker:5.3=.
+
+  It is recommended that =PKG_PATH= is always used and that you use continuous mirroring to mirror packages to your own Gitlab instance into the same namespace so that this relative inclusion works.
+
+  Included packages are included in the =testnso= container image but not in the final output in the =package= image.
+
 * Skeleton content
   The NID package standard form comes as a skeleton that can be applied to a repository by copying over a number of files to your repository. The files are:
   - =README.nid-package.org=: This README file
@@ -131,6 +158,33 @@
   - =test/=: Directory containing test related files
   - =packages/=: Standard location for placing the NSO package itself
   - =test-packages/=: Standard location for placing NSO packages for testing. These are included in the =testnso= container that can be used to test the package but aren't included in the final output.
+  - =includes/=: Standard location for placing manifests for including externally built packages
 
 ** Skeleton source location and updating the skeleton
    The authoritative origin for the standard form NID package skeleton is the =nso-docker= repository at [[https://gitlab.com/nso-developer/nso-docker/]], specifically in the directory =skeletons/package=. To upgrade to a later version of the skeleton, pull the files from that location and avoid touching the =Makefile= as it typically contains custom modifications. Be sure to include files starting with a dot (=.=).
+
+* Continuous mirroring
+  In the NSO in Docker (NID) ecosystem, you are encouraged to mirror repositories that you use. If you found this repository outside of your own git hosting system, you should mirror it to your own git host for it to be built there by your own CI system.
+
+  While you can rely on binaries built upstream, including them in your NSO system means a build time risk as broken Internet connectivity or similar could mean you cannot download the packages you depend on. If you need to quickly rebuild your system to integrate a small hot fix, such a risk could mean you cannot deploy a new version. Mirroring the git source repositories of your dependencies not only mean you get to build them locally but also allows you to make minor (or major) modifications to the source. It could be to update the =.gitlab-ci.yml= file to add a build for a different NSO version or a minor patch to a NED. Mirroring was kept in mind while designing NID ecosystem.
+
+  We think it is important to keep a copy of your dependencies locally (in your own Gitlab instance) such that you can build it yourself if necessary. We also think it is important to keep dependencies up to date - in fact, we would like to encourage to "live-at-head", i.e. follow and include the latest version of a dependency. This is why continuous mirroring of an upstream repository makes sense. However, you should not blindly accept new versions into your main NSO system build as it can break your downstream builds. A gating function is needed and we propose a explicit version pinning workflow to provide for that gating function.
+
+  While NSO in Docker isn't specifically built for Gitlab (the intention is to make it more general than that), it is currently well suited to be hosted in Gitlab since the accompanying CI configuration file is for Gitlab CI. Gitlab features a mirroring functionality that can either push or pull in changes from a remote repository. You can use GitLab mirroring to continuously mirror this repository, however, it comes with a major constraint; only fast-forward merging is possible. This essentially prevents you from making even the most minute changes to the repository as continued mirroring will break. While you are encouraged to upstream any patches or changes you might have for this repository and others in the NID world, there are times when you want to make changes, for example if you need to apply a particular CI runner tag or limit the versions of NSO that you build for. To cater to such scenarios, an alternative mirror mechanism is provided: The CI configuration of this repository and the repo skeletons, are capable of mirroring itself from an upstream through a special CI job.
+
+  Enable mirroring from an upstream by scheduling a CI job and setting the =CI_MODE= variable to =mirror=. You create a CI schedule by going to =CI / CD= -> =Schedules= in Gitlab. In addition, you need to set a number of other variables for the mirroring functionality to work:
+  - =CI_MODE=: =CI_MODE= must be set to =mirror= which will skip running any of the normal build and test jobs and instead only run the mirror job
+  - =GITLAB_HOSTKEY=: the public hostkey(s) of the GitLab server
+    - run ~ssh-keyscan URL-OF-YOUR-GITLAB-SERVER~ to get suitable output to include in the variable value
+  - =GIT_SSH_PRIV_KEY=: a private SSH key to use for cloning of its own repository and pushing the updates
+    - create a deploy key that has write privileges
+      - generate a key locally ~ssh-keygen -t ed25519 -f my-nso-docker-mirror~
+      - in GitLab for your repository, go to =Settings= -> =CI / CD= -> =Deploy keys=
+      - create a new key, paste in the public part from what you generated
+        - Check =Write access allowed=
+    - enter the private key in the =GIT_SSH_PRIV_KEY= variable
+  - =MIRROR_REMOTE=: the URL of the upstream repository that you wish to mirror
+    - for example, to mirror the authoritative repo for =nso-docker=, you would use =https://gitlab.com/nso-developer/nso-docker.git=
+  Set ~CI_MODE=mirror~ in the CI schedule (since this should only apply for that job and not the normal CI jobs). Use the repo wide CI variable section to set at least =GITLAB_HOSTKEY= and =GIT_SSH_PRIV_KEY=, possibly =MIRROR_REMOTE= too (or set from CI schedule). These are multi-line values and it appears some GitLab versions cannot correctly set multi-line values in the CI schedule, instead using repo wide CI variables effectively works around this issue.
+
+  The mirroring functionality is quite simple. It will run ~git clone~ to get a copy of its own repository (which is why it needs SSH host keys and deploy keys), then add the upstream repository as a HTTP mirror (presuming it is a public repository and does not require any credentials). It will then pull in changes, allowing merge conflicts, and finally push the result to its own repository, thus functionally achieving a mirror. It uses the user name and email of the user who initiated the CI build as the git commit author (for merge commits).
