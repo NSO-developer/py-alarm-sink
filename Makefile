@@ -51,3 +51,5 @@ testenv-test:
 	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm last-alarm-text | notab" | grep all-clear
 	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm is-cleared | notab" | grep true
 	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm | notab" | grep "[[:space:]]\+status-change" | wc -l | grep -w 3
+	@echo "verify the cleared alarm still has the perceived severity of warning"
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm last-perceived-severity | notab" | grep warning

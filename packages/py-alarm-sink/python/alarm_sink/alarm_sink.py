@@ -208,7 +208,7 @@ class AlarmSink(object):
 
             al.is_cleared = alarm.cleared
             al.last_alarm_text = alarm.alarm_text
-            if alarm.ncs_severity != PerceivedSeverity.CLEARED:
+            if not alarm.cleared:
                 al.last_perceived_severity = alarm.ncs_severity
             al.last_status_change = alarm.timestamp
 
