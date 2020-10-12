@@ -1,6 +1,42 @@
 * py-alarm-sink - NSO Python alarm sink
   This NSO package helps you create alarms in NSO from Python code!
 
+  The package contains a Python module ~alarm_sink~ which allows for simple creation and updating of alarms within NSO. The alarm list in NSO (=/al:alarms/alarm-list/alarm=) is writable using the existing APIs (maagic). In fact, that is what this package does under the hood! To use the package in your own code, declare this package as a dependency of your package in =package-meta-data.xml=. For example, in this repository we have a test package =test-packages/test-alarm-sink= which uses =py-alarm-sink= in an NSO action. This is the relevant section of =package-meta-data.xml=:
+
+  #+BEGIN_SRC xml
+  <required-package>
+    <name>py-alarm-sink</name>
+  </required-package>
+  #+END_SRC
+
+  In the package code, just ~import alarm_sink~ and use the API:
+
+  #+BEGIN_SRC python
+  from alarm_sink import alarm_sink
+
+  # First create the AlarmId tuple. This is used as the key for the alarm list entry
+  alarm_id = alarm_sink.AlarmId('some-device', '/devices/device[name="some-device"]', 'custom-alarm', 'specific-reason')
+  # Then craete the Alarm object. This object contains the current state of the
+  # alarm - severity, text, and cleared status. If the same object already exist
+  # in the list of alarm state changes, nothing is done. If an attribute of an
+  # alarm was changed, the data will be flushed when calling submit_alarm.
+  sev = alarm_sink.PerceivedSeverity.MINOR
+  alarm = alarm_sink.Alarm(alarm_id, severity=sev, alarm_text='A minor problem occured on the kajigger')
+  # Flush the change to CDB. Without parameters, the AlarmSink starts its own
+  # MAAPI session and transaction. It is also possible to pass an existing MAAPI
+  # session.
+  with alarm_sink.AlarmSink() as ask:
+      ask.submit_alarm(alarm)
+
+  # Some time later, we can clear the alarm.
+  alarm.cleared = True
+  alarm.alarm_text = 'All is normal on the kajigger'
+  with alarm_sink.AlarmSink() as ask:
+      ask.submit_alarm(alarm)
+  #+END_SRC
+
+  For more options I encourage you to read the source and comments in the ~alarm_sink~ module itself.
+
 * License
    Copyright 2020 Deutsche Telekom AG
 
