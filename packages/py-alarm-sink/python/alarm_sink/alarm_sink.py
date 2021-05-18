@@ -34,7 +34,7 @@ Example:
 """
 
 import dataclasses
-import datetime
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -108,7 +108,7 @@ class Alarm(object):
         self.specific_problem = alarm_id.specific_problem
         self._severity = severity
         self._alarm_text = alarm_text
-        self.timestamp = timestamp or datetime.datetime.now().isoformat()
+        self.timestamp = timestamp or datetime.now().isoformat()
 
         self.impacted_objects = impacted_objects
         self.related_alarms = related_alarms
@@ -226,7 +226,6 @@ class AlarmSink(object):
                     al.related_alarms.create(ra.device, ra.type, ra.managed_object, ra.specific_problem)
 
             sc = al.status_change.create(alarm.timestamp)
-
             sc.perceived_severity = alarm.ncs_severity
             sc.alarm_text = alarm.alarm_text
 
@@ -246,6 +245,42 @@ class AlarmSink(object):
                 t_write.apply()
             except KeyError:
                 pass
+
+    def clear_alarm(self, alarm_id: AlarmId, alarm_text: str = "Alarm cleared", timestamp: datetime = datetime.utcnow()):
+        """Immediately clear the alarm (if existing and not cleared)
+
+        :param alarm_id: alarm_id object
+        :param alarm_text: optional text used for status update (defaults to "Alarm cleared")
+        :param timestamp: optional timestamp for the status-change list entry (defaults to now)"""
+        with self.maapi.start_write_trans(db=ncs.OPERATIONAL) as t_write:
+            root = ncs.maagic.get_root(t_write)
+            alarm_list = root.al__alarms.alarm_list.alarm
+
+            try:
+                al = alarm_list[alarm_id.device, alarm_id.type, alarm_id.managed_object, alarm_id.specific_problem or '']
+            except KeyError:
+                return
+
+            # If the alarm is already cleared there can not be any more
+            # updates, unless we go back to another severity (see
+            # submit_alarm() method).
+            if al.is_cleared:
+                return
+
+            if alarm_text is None:
+                alarm_text = 'Alarm cleared'
+            if timestamp is None:
+                timestamp = datetime.utcnow()
+
+            al.is_cleared = True
+            al.last_alarm_text = alarm_text
+            al.last_status_change = timestamp.isoformat()
+
+            sc = al.status_change.create(timestamp.isoformat())
+            sc.perceived_severity = PerceivedSeverity.CLEARED.value
+            sc.alarm_text = alarm_text
+
+            t_write.apply()
 
 
 if __name__ == '__main__':
