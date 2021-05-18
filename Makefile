@@ -53,3 +53,15 @@ testenv-test:
 	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm | notab" | grep "[[:space:]]\+status-change" | wc -l | grep -w 3
 	@echo "verify the cleared alarm still has the perceived severity of warning"
 	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm last-perceived-severity | notab" | grep warning
+
+	@echo "Create the alarm again"
+	$(MAKE) testenv-runcmdJ CMD="request test-alarm-sink create-alarm device foo managed-object /devices/device[name='foo'] type test-alarm severity warning alarm-text test"
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list number-of-alarms" | awk '{ print $$4 }' | grep -w 1
+
+	@echo "Clear the alarm unconditionally and verify a new status-change is added and alarm is cleared"
+	$(MAKE) testenv-runcmdJ CMD="request test-alarm-sink clear-alarm device foo managed-object /devices/device[name='foo'] type test-alarm alarm-text all-clear"
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm last-alarm-text | notab" | grep all-clear
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm is-cleared | notab" | grep true
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm | notab" | grep "[[:space:]]\+status-change" | wc -l | grep -w 5
+	@echo "verify the cleared alarm still has the perceived severity of warning"
+	$(MAKE) testenv-runcmdJ CMD="show alarms alarm-list alarm last-perceived-severity | notab" | grep warning

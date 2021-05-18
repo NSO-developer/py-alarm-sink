@@ -19,7 +19,16 @@ class CreateAlarm(ncs.dp.Action):
             ask.submit_alarm(alarm)
 
 
+class ClearAlarm(ncs.dp.Action):
+    @ncs.dp.Action.action
+    def cb_action(self, uinfo, name, kp, action_input, action_output):
+        alarm_id = alarm_sink.AlarmId(action_input.device, action_input.managed_object, action_input.type, action_input.specific_problem)
+        with alarm_sink.AlarmSink() as ask:
+            ask.clear_alarm(alarm_id, action_input.alarm_text)
+
+
 class Main(ncs.application.Application):
     def setup(self):
         self.register_action('create-alarm', CreateAlarm)
         self.register_action('update-alarm', CreateAlarm)
+        self.register_action('clear-alarm', ClearAlarm)
