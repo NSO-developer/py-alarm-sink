@@ -33,9 +33,10 @@ Example:
         alarm.cleared = True
 """
 
+import dataclasses
 import datetime
-from collections import namedtuple
 from enum import Enum
+from typing import Optional
 
 import ncs
 
@@ -49,7 +50,8 @@ class PerceivedSeverity(Enum):
     CRITICAL = 6
 
 
-class AlarmId(namedtuple('AlarmId', ['device', 'managed_object', 'type', 'specific_problem'])):
+@dataclasses.dataclass(frozen=True)
+class AlarmId:
     """Unique identifier for an alarm list entry
 
     Each alarm is uniquely identified with four keys:
@@ -73,8 +75,12 @@ class AlarmId(namedtuple('AlarmId', ['device', 'managed_object', 'type', 'specif
         - specific_problem: If the AlarmType isn't enough to describe the Alarm,
         this field can be used in combination. Keep in mind that when
         dynamically adding a specific problem, there is no way for the operator
-        to know in beforehand which alarms that can be raised on the network."""
-    __slots__ = ()
+        to know in beforehand which alarms that can be raised on the network.
+    """
+    device: str
+    managed_object: str
+    type: str
+    specific_problem: Optional[str]
 
 
 class Alarm(object):
