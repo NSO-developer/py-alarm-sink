@@ -62,5 +62,15 @@ module test-alarm-sink {
         }
       }
     }
+
+    action clear-alarm {
+      tailf:actionpoint "clear-alarm";
+      input {
+        uses alarm-id;
+        leaf alarm-text {
+          type string;
+        }
+      }
+    }
   }
 }
