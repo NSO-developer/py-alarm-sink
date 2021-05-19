@@ -28,11 +28,18 @@
   with alarm_sink.AlarmSink() as ask:
       ask.submit_alarm(alarm)
 
-  # Some time later, we can clear the alarm.
+  # Some time later, we can clear the alarm. Here we use the same `submit_alarm()` method
+  # which means we must provide a valid Alarm object.
   alarm.cleared = True
   alarm.alarm_text = 'All is normal on the kajigger'
   with alarm_sink.AlarmSink() as ask:
       ask.submit_alarm(alarm)
+
+
+  # If you really just want to clear the alarm you can also use the `clear_alarm()` method.
+  with alarm_sink.AlarmSink() as ask:
+      ask.clear_alarm(alarm_id, alarm_text='All is normal on the kajigger')
+
   #+END_SRC
 
   For more options I encourage you to read the source and comments in the ~alarm_sink~ module itself.
