@@ -20,10 +20,19 @@ PYLINT = pylint --ignore=namespaces --rcfile $(PKGS_DIR)/.pylintrc
 #   categories has been issued by analysing pylint output status code
 # we use strict linting, so any type of lint will result in a failure.
 pylint:
+ifeq ($(SKIP_LINT),true)
+	@echo "Skipping $@ because SKIP_LINT=true"
+else
 	PYLINTHOME=.pylint.d $(PYLINT) --ignore=namespaces $(MY_PY_SRC)
+endif
+
 
 mypy:
-	mypy $(MY_PY_SRC) --check-untyped-defs --ignore-missing-imports || true
+ifeq ($(SKIP_LINT),true)
+	@echo "Skipping $@ because SKIP_LINT=true"
+else
+	mypy $(MY_PY_SRC) --check-untyped-defs --ignore-missing-imports
+endif
 
 clean: clean-pylint clean-mypy clean-pycache
 
